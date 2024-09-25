@@ -10,9 +10,50 @@
       ./hardware-configuration.nix
     ];
 
+  # Hardware.
+  hardware.bluetooth.enable = true; # enables support for Bluetooth
+  hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
+  hardware.pulseaudio.enable = false;
+
   # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot = {
+    plymouth = {
+      enable = true;
+      theme = "pixels";
+      themePackages = with pkgs; [
+        # By default we would install all themes
+        (adi1090x-plymouth-themes.override {
+          selected_themes = [ "pixels" ];
+        })
+      ];
+    };
+
+    # Enable "Silent Boot"
+    consoleLogLevel = 0;
+    initrd.verbose = false;
+    kernelParams = [
+      "quiet"
+      "splash"
+      "boot.shell_on_fail"
+      "loglevel=3"
+      "rd.systemd.show_status=false"
+      "rd.udev.log_level=3"
+      "udev.log_priority=3"
+    ];
+    # Hide the OS choice for bootloaders.
+    # It's still possible to open the bootloader list by pressing any key
+    # It will just not appear on screen unless a key is pressed
+    # loader.timeout = 0; # Warning!: did not work for grub when I tested it.
+
+    loader.grub = {
+      enable = true;
+      efiSupport = true;
+      device = "nodev";
+    };
+
+    loader.systemd-boot.enable = false;
+    loader.efi.canTouchEfiVariables = true;
+  };
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -43,18 +84,84 @@
   };
 
   # Configure keymap in X11
-  services.xserver.xkb = {
-    layout = "us";
-    variant = "";
+  services.xserver = {
+    enable = true;
+    xkb = {
+      layout = "us";
+      variant = "";
+    };
   };
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
+  users.defaultUserShell = pkgs.zsh;
   users.users.joel = {
     isNormalUser = true;
     description = "Joel";
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [];
   };
+
+  # Services
+
+  # SDDM
+  services.displayManager.sddm = {
+    enable = true;
+    # wayland.enable = true;
+  };
+
+  # PipeWire
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    # If you want to use JACK applications, uncomment this
+    jack.enable = true;
+  };
+
+  # Printing
+  # services.printing = {
+    # enable = true;
+    # drivers = with pkgs; [
+      # gutenprint
+      # hplip
+    # ];
+  # };
+
+  # Avahi
+  # services.avahi = {
+    # enable = true;
+    # nssmdns4 = true;
+    # openFirewall = true;
+  # };
+
+
+  # Environment variables
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
+  # Program configs
+  programs.zsh = {
+    syntaxHighlighting.enable = true;
+    enable = true;
+  };
+
+  programs.hyprland = {
+    enable = true;
+    xwayland.enable = true;
+  };
+
+  # Fonts
+  fonts.packages = with pkgs; [
+    noto-fonts
+    noto-fonts-cjk
+    noto-fonts-emoji
+    liberation_ttf
+    fira-code-nerdfont
+    fira-code-symbols
+    mplus-outline-fonts.githubRelease
+    (nerdfonts.override { fonts = [ "FiraCode" ]; })
+  ];
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
@@ -74,6 +181,8 @@
     hyprland # hyprland -- window manager
     hyprpicker # hyprpicker -- color picker
     xdg-desktop-portal-hyprland # xdg-desktop-portal-hyprland -- xdg-desktop-portal backend for hyprland
+    xdg-desktop-portal-gtk # xdg-desktop-portal-gtk -- xdg-desktop-portal backend for gtk
+
 
     # bootloader
     grub2 # grub -- bootloader
@@ -83,6 +192,9 @@
 
     # display manager
     sddm # sddm -- display manager
+
+    # app launcher & menu
+    wofi # wofi -- dmenu & drun replacement
 
     # dotfiles
     stow
@@ -126,7 +238,8 @@
     ripgrep # ripgrep -- grep replacement
 
     # files && folders
-    yazi # yazi -- file manager
+    yazi # yazi -- TUI file manager
+    dolphin # dolphin -- GUI file manager
     zoxide # zoxide -- cd replacement
     stow # stow -- symlink manager
     bat # bat -- cat with syntax highlighting
@@ -185,6 +298,12 @@
 
     # office
     wpsoffice # wps office -- Free MS compatible office suite
+
+    # printers
+    # cups # CUPS -- UNIX printing system
+    gutenprint # gutenprint drivers -- open source printer drivers
+    hplip # hp printer drivers
+    system-config-printer # printer manager
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
